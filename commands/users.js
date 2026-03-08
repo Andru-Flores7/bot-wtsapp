@@ -18,7 +18,7 @@ const showMenu = async (sock, groupId, isAdmin) => {
     menuText += '🎮 *INTERACCIÓN*\n';
     menuText += '└ !hug / !abrazo [@usuario] - Dar un abrazo\n';
     menuText += '└ !kiss / !beso [@usuario] - Dar un beso\n';
-    menuText += '└ !fuck / !sexo [@usuario] - Subir el tono 😏\n';
+    // menuText += '└ !fuck / !sexo [@usuario] - Subir el tono 😏\n';
     menuText += '└ !embarazar [@usuario] - Dejar embarazad@\n';
     menuText += '└ !slap / !bofetada [@usuario] - Dar una bofetada\n';
     menuText += '└ !marry / !casar [@usuario] - Casarse\n';

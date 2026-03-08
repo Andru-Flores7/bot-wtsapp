@@ -119,7 +119,7 @@ async function handleInteraction(sock, message, groupId, senderId, command, args
     switch(command) {
         case 'hug': case 'abrazo': reactionArray = reactions.hug; break;
         case 'kiss': case 'beso': reactionArray = reactions.kiss; break;
-        case 'fuck': case 'sexo': case 'coger': reactionArray = reactions.fuck; break;
+        // case 'fuck': case 'sexo': case 'coger': reactionArray = reactions.fuck; break;
         case 'embarazar': case 'impregnate': reactionArray = reactions.impregnate; break;
         case 'slap': case 'bofetada': reactionArray = reactions.slap; break;
         case 'marry': case 'casar': reactionArray = reactions.marry; break;

@@ -202,7 +202,7 @@ async function connectToWhatsApp() {
                         break;
                     case 'hug': case 'abrazo':
                     case 'kiss': case 'beso':
-                    case 'fuck': case 'sexo': case 'coger':
+                    // case 'fuck': case 'sexo': case 'coger':
                     case 'embarazar': case 'impregnate':
                     case 'slap': case 'bofetada':
                     case 'marry': case 'casar':
