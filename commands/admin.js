@@ -6,11 +6,28 @@ const config = require('../config');
  */
 const isAdmin = async (sock, groupId, participantId) => {
     try {
+        // Normalizar ID (quitar prefijos/sufijos de dispositivo)
+        const normalizedSender = participantId.split(':')[0].split('@')[0];
+        const normalizedConfigAdmin = config.ADMIN_NUMBER.replace(/\D/g, '');
+        
+        console.log(`🔍 Verificando admin para: ${participantId}`);
+
+        // 1. Verificar si es el admin de la configuración
+        if (normalizedSender === normalizedConfigAdmin) {
+            console.log('👑 Admin reconocido por configuración (Superuser)');
+            return true;
+        }
+
+        // 2. Verificar en los metadatos del grupo
         const groupMetadata = await sock.groupMetadata(groupId);
-        const participant = groupMetadata.participants.find(p => p.id === participantId);
-        return participant?.admin === 'admin' || participant?.admin === 'superadmin';
+        const participant = groupMetadata.participants.find(p => p.id.split('@')[0] === normalizedSender);
+        
+        const isGroupAdmin = participant?.admin === 'admin' || participant?.admin === 'superadmin';
+        console.log(`📋 ¿Es admin de grupo?: ${isGroupAdmin}`);
+        
+        return isGroupAdmin;
     } catch (error) {
-        console.error('Error verificando admin:', error);
+        console.error('❌ Error verificando admin:', error);
         return false;
     }
 };
@@ -22,10 +39,13 @@ const isBotAdmin = async (sock, groupId) => {
     try {
         const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         const groupMetadata = await sock.groupMetadata(groupId);
-        const bot = groupMetadata.participants.find(p => p.id === botId);
-        return bot?.admin === 'admin' || bot?.admin === 'superadmin';
+        const bot = groupMetadata.participants.find(p => p.id.split(':')[0] === botId.split(':')[0]);
+        
+        const res = bot?.admin === 'admin' || bot?.admin === 'superadmin';
+        console.log(`🤖 ¿Bot es admin?: ${res}`);
+        return res;
     } catch (error) {
-        console.error('Error verificando bot admin:', error);
+        console.error('❌ Error verificando bot admin:', error);
         return false;
     }
 };
