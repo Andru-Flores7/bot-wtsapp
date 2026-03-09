@@ -175,14 +175,15 @@ async function connectToWhatsApp() {
                 
                 if (!messageContent.startsWith(config.PREFIX)) return;
                 
-                console.log('📨 Comando:', messageContent);
-                
                 const groupId = msg.key.remoteJid;
                 const senderId = msg.key.participant || msg.key.remoteJid;
                 const args = messageContent.slice(config.PREFIX.length).trim().split(/\s+/);
                 const command = args.shift().toLowerCase();
+
+                console.log(`📩 Comando: [${command}] de [${senderId}]`);
                 
                 const isAdmin = await adminCommands.isAdmin(sock, groupId, senderId);
+                console.log(`🛡️ Resultado isAdmin en index.js: ${isAdmin}`);
                 
                 switch(command) {
                     case 'menu':
@@ -213,45 +214,21 @@ async function connectToWhatsApp() {
                         await sendDailyActivity(sock, groupId);
                         break;
                     case 'kick':
-                        if (!isAdmin) {
-                            await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-                            break;
-                        }
                         await adminCommands.kickMember(sock, msg, groupId, senderId);
                         break;
                     case 'add':
-                        if (!isAdmin) {
-                            await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-                            break;
-                        }
                         await adminCommands.addMember(sock, msg, groupId, senderId, args);
                         break;
                     case 'promote':
-                        if (!isAdmin) {
-                            await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-                            break;
-                        }
                         await adminCommands.promoteToAdmin(sock, msg, groupId, senderId);
                         break;
                     case 'demote':
-                        if (!isAdmin) {
-                            await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-                            break;
-                        }
                         await adminCommands.demoteFromAdmin(sock, msg, groupId, senderId);
                         break;
                     case 'groupclose':
-                        if (!isAdmin) {
-                            await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-                            break;
-                        }
                         await adminCommands.closeGroup(sock, groupId, senderId);
                         break;
                     case 'groupopen':
-                        if (!isAdmin) {
-                            await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-                            break;
-                        }
                         await adminCommands.openGroup(sock, groupId, senderId);
                         break;
                     default:

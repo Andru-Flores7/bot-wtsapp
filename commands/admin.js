@@ -2,32 +2,34 @@
 const config = require('../config');
 
 /**
+ * Normaliza un ID de WhatsApp (quita @s.whatsapp.net, @lid, :0, etc.)
+ */
+const normalizeId = (id) => {
+    if (!id) return '';
+    return id.split(':')[0].split('@')[0];
+};
+
+/**
  * Verifica si un usuario es administrador
  */
 const isAdmin = async (sock, groupId, participantId) => {
     try {
-        // Normalizar ID (quitar prefijos/sufijos de dispositivo)
-        const normalizedSender = participantId.split(':')[0].split('@')[0];
-        const normalizedConfigAdmin = config.ADMIN_NUMBER.replace(/\D/g, '');
+        const normalizedSender = normalizeId(participantId);
+        const normalizedConfigAdmin = normalizeId(config.ADMIN_NUMBER);
         
-        console.log(`🔍 Verificando admin para: ${participantId}`);
-
         // 1. Verificar si es el admin de la configuración
         if (normalizedSender === normalizedConfigAdmin) {
-            console.log('👑 Admin reconocido por configuración (Superuser)');
             return true;
         }
 
         // 2. Verificar en los metadatos del grupo
         const groupMetadata = await sock.groupMetadata(groupId);
-        const participant = groupMetadata.participants.find(p => p.id.split('@')[0] === normalizedSender);
-        
-        const isGroupAdmin = participant?.admin === 'admin' || participant?.admin === 'superadmin';
-        console.log(`📋 ¿Es admin de grupo?: ${isGroupAdmin}`);
-        
-        return isGroupAdmin;
+        if (!groupMetadata || !groupMetadata.participants) return false;
+
+        const participant = groupMetadata.participants.find(p => normalizeId(p.id) === normalizedSender);
+        return participant?.admin === 'admin' || participant?.admin === 'superadmin';
     } catch (error) {
-        console.error('❌ Error verificando admin:', error);
+        console.error('❌ Error en isAdmin:', error);
         return false;
     }
 };
@@ -37,13 +39,33 @@ const isAdmin = async (sock, groupId, participantId) => {
  */
 const isBotAdmin = async (sock, groupId) => {
     try {
-        const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-        const groupMetadata = await sock.groupMetadata(groupId);
-        const bot = groupMetadata.participants.find(p => p.id.split(':')[0] === botId.split(':')[0]);
+        // 1. Intento por ID (JID o LID)
+        const jid = sock.user?.id;
+        const lid = sock.user?.lid || sock.authState?.creds?.me?.lid;
         
-        const res = bot?.admin === 'admin' || bot?.admin === 'superadmin';
-        console.log(`🤖 ¿Bot es admin?: ${res}`);
-        return res;
+        const botIds = [
+            jid ? normalizeId(jid) : null,
+            lid ? normalizeId(lid) : null
+        ].filter(Boolean);
+
+        const groupMetadata = await sock.groupMetadata(groupId);
+        if (groupMetadata && groupMetadata.participants) {
+            const bot = groupMetadata.participants.find(p => botIds.includes(normalizeId(p.id)));
+            if (bot?.admin === 'admin' || bot?.admin === 'superadmin') {
+                return true;
+            }
+        }
+
+        // 2. PRUEBA FUNCIONAL DEFINITIVA:
+        // Solo un administrador puede obtener el código de invitación del grupo.
+        // Si esto funciona, el bot es admin sin importar qué ID estemos comparando.
+        try {
+            await sock.groupInviteCode(groupId);
+            return true;
+        } catch (err) {
+            // Si falla con error 401/403, es que no es admin.
+            return false;
+        }
     } catch (error) {
         console.error('❌ Error verificando bot admin:', error);
         return false;
