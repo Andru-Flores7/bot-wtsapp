@@ -43,6 +43,14 @@ const reactions = {
         '💀 {target} ha muerto a manos de {author}',
         '⚰️ RIP {target}. {author} te ha enviado al otro barrio',
         '🔫 {author} ejecuta a {target}'
+    ],
+    piropo: [
+        '🌹 {author} le dice un piropo a {target}: ¿De qué dulcería te escapaste? ¡Porque eres un bombón!',
+        '✨ {author} le susurra a {target}: Si fueras una estrella, serías la más brillante del cielo.',
+        '😊 {author} se sonroja y le dice a {target}: Tus ojos son como el café, me quitan el sueño.',
+        '💖 {author} le dedica un piropo a {target}: No es que tengas mucha ropa, es que me sobran ganas de verte.',
+        '🔥 {author} le dice a {target}: ¿Te dolió cuando te caíste del cielo? Porque pareces un ángel.',
+        '🍭 {author} endulza a {target} diciendo: Si la belleza fuera pecado, tú no tendrías perdón de Dios.'
     ]
 };
 
@@ -124,6 +132,7 @@ async function handleInteraction(sock, message, groupId, senderId, command, args
         case 'slap': case 'bofetada': reactionArray = reactions.slap; break;
         case 'marry': case 'casar': reactionArray = reactions.marry; break;
         case 'kill': case 'matar': reactionArray = reactions.kill; break;
+        case 'piropo': reactionArray = reactions.piropo; break;
         default: return;
     }
 

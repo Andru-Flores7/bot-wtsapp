@@ -132,22 +132,27 @@ async function connectToWhatsApp() {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 const errorMessage = lastDisconnect?.error?.message || 'Error desconocido';
                 
-                console.log(`\n❌ Conexión cerrada: ${errorMessage}`);
+                console.log(`\n❌ Conexión cerrada: ${errorMessage} (Status: ${statusCode})`);
                 
                 // Si es error de logout, limpiar y generar nuevo QR
                 if (statusCode === DisconnectReason.loggedOut) {
-                    console.log('🚫 Sesión cerrada. Generando nuevo QR...\n');
+                    console.log('🚫 Sesión cerrada por el usuario. Generando nuevo QR...\n');
                     connectionStatus = 'disconnected';
                     cleanSessions();
                     reconnectAttempts = 0;
                     await sleep(3000);
                     connectToWhatsApp();
                 } 
-                // Si es error de conexión, esperar y reintentar
+                // Para fallos de red/Wi-Fi: reintentar SIN borrar la sesión
                 else {
-                    const waitTime = reconnectAttempts > 5 ? 30000 : 5000;
-                    console.log(`🔄 Reintentando en ${waitTime/1000} segundos...\n`);
+                    const waitTime = Math.min(30000, (reconnectAttempts * 5000) + 2000);
+                    console.log(`🔄 Problema de conexión. Reintentando en ${waitTime/1000}s...\n`);
                     connectionStatus = 'reconnecting';
+                    
+                    if (sock) {
+                        try { sock.end(); } catch (e) {}
+                    }
+
                     await sleep(waitTime);
                     connectToWhatsApp();
                 }
@@ -203,12 +208,15 @@ async function connectToWhatsApp() {
                         break;
                     case 'hug': case 'abrazo':
                     case 'kiss': case 'beso':
-                    // case 'fuck': case 'sexo': case 'coger':
+                    case 'piropo':
                     case 'embarazar': case 'impregnate':
                     case 'slap': case 'bofetada':
                     case 'marry': case 'casar':
                     case 'kill': case 'matar':
                         await handleInteraction(sock, msg, groupId, senderId, command, args);
+                        break;
+                    case 'frase':
+                        await userCommands.showPhrase(sock, groupId);
                         break;
                     case 'dinamica': case 'daily':
                         await sendDailyActivity(sock, groupId);

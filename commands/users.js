@@ -41,6 +41,11 @@ const showMenu = async (sock, groupId, isAdmin) => {
         menuText += '└ !link - Link del grupo\n';
     }
     
+    // Añadir los nuevos comandos al menú público para que todos los vean
+    menuText += '\n✨ *NUEVOS*\n';
+    menuText += '└ !piropo [@usuario] - Di algo bonito\n';
+    menuText += '└ !frase - Frase aleatoria\n';
+    
     await sock.sendMessage(groupId, { text: menuText });
 };
 
@@ -128,10 +133,32 @@ const getGroupLink = async (sock, groupId, senderId, isAdmin) => {
     }
 };
 
+/**
+ * Comando: !frase - Envía una frase aleatoria
+ */
+const showPhrase = async (sock, groupId) => {
+    const frases = [
+        "✨ El éxito no es el final, el fracaso no es fatal: es el coraje para continuar lo que cuenta.",
+        "🌈 Sé el cambio que quieres ver en el mundo.",
+        "🚀 Lo único imposible es aquello que no intentas.",
+        "💡 No cuentes los días, haz que los días cuenten.",
+        "🌟 Sé tu propio arcoíris en un día nublado.",
+        "🍃 La felicidad no es algo que se encuentra, es algo que se crea.",
+        "🔥 No dejes que el ruido de las opiniones de los demás apague tu propia voz interior.",
+        "💎 La mejor forma de predecir el futuro es creándolo.",
+        "🌊 No puedes cruzar el mar simplemente mirando el agua.",
+        "🌻 Cree en ti mismo y todo será posible."
+    ];
+    
+    const frase = frases[Math.floor(Math.random() * frases.length)];
+    await sock.sendMessage(groupId, { text: `📜 *FRASE DEL DÍA*\n\n"${frase}"` });
+};
+
 module.exports = {
     showMenu,
     listAdmins,
     groupInfo,
     showRules,
-    getGroupLink
+    getGroupLink,
+    showPhrase
 };
