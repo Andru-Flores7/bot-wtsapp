@@ -18,6 +18,7 @@ let sock = null;
 let qrCode = null;
 let connectionStatus = 'disconnected';
 let reconnectAttempts = 0;
+let heartbeatInterval = null;
 
 /**
  * Espera un tiempo determinado
@@ -52,7 +53,8 @@ async function connectToWhatsApp() {
             defaultQueryTimeoutMs: 60000,
             generateHighQualityLinkPreview: false,
             shouldSyncHistory: false,
-            retryRequestDelayMs: 2000
+            retryRequestDelayMs: 2000,
+            keepAliveIntervalMs: 30000 // Heartbeat interno de Baileys
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -110,6 +112,19 @@ async function connectToWhatsApp() {
                 connectionStatus = 'connected';
                 qrCode = null;
                 reconnectAttempts = 0;
+
+                // --- SISTEMA ANTI-ZOMBIE ---
+                if (heartbeatInterval) clearInterval(heartbeatInterval);
+                heartbeatInterval = setInterval(async () => {
+                    if (sock && connectionStatus === 'connected') {
+                        try {
+                            await sock.sendPresenceUpdate('available');
+                            console.log('💓 Pulso de actividad (Anti-Zombie)');
+                        } catch (e) {
+                            console.log('⚠️ Fallo en pulso de actividad');
+                        }
+                    }
+                }, 120000); // Cada 2 minutos
             }
 
             // Conexión cerrada
@@ -129,6 +144,7 @@ async function connectToWhatsApp() {
                 } 
                 // Para fallos de red/Wi-Fi: reintentar SIN borrar la sesión
                 else {
+                    if (heartbeatInterval) clearInterval(heartbeatInterval);
                     const waitTime = Math.min(30000, (reconnectAttempts * 5000) + 2000);
                     console.log(`🔄 Problema de conexión. Reintentando en ${waitTime/1000}s...\n`);
                     connectionStatus = 'reconnecting';
