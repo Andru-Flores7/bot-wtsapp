@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = require('@whiskeysockets/baileys');
 const express = require('express');
 const QRCode = require('qrcode');
 const pino = require('pino');
@@ -9,6 +9,7 @@ const adminCommands = require('./commands/admin');
 const userCommands = require('./commands/users');
 const { handleInteraction } = require('./commands/interactions');
 const { sendDailyActivity } = require('./commands/daily');
+const { useSupabaseAuthState } = require('./utils/supabaseAuth');
 
 const app = express();
 const PORT = config.PORT || 8080;
@@ -19,48 +20,32 @@ let connectionStatus = 'disconnected';
 let reconnectAttempts = 0;
 
 /**
- * Limpia la carpeta de sesiones
- */
-function cleanSessions() {
-    const sessionsPath = path.join(__dirname, 'sessions');
-    if (fs.existsSync(sessionsPath)) {
-        console.log('🧹 Limpiando carpeta sessions...');
-        fs.rmSync(sessionsPath, { recursive: true, force: true });
-    }
-}
-
-/**
  * Espera un tiempo determinado
  */
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Inicializa la conexión con WhatsApp - VERSIÓN ANTI-BLOQUEO
+ * Inicializa la conexión con WhatsApp - VERSIÓN SUPABASE
  */
 async function connectToWhatsApp() {
     try {
         reconnectAttempts++;
         
-        // Si hay muchos intentos, esperar más tiempo
-        if (reconnectAttempts > 3) {
-            const waitTime = Math.min(30000, reconnectAttempts * 5000);
-            console.log(`⏳ Muchos intentos fallidos. Esperando ${waitTime/1000} segundos...`);
-            await sleep(waitTime);
-        }
-        
         console.log(`🔄 Intento de conexión #${reconnectAttempts}...`);
         
-        
         const { version, isLatest } = await fetchLatestBaileysVersion();
-        console.log(`💻 Usando versión de WhatsApp v${version.join('.')} (Latest: ${isLatest})`);
+        console.log(`💻 Versión WhatsApp v${version.join('.')} (Latest: ${isLatest})`);
 
-        const { state, saveCreds } = await useMultiFileAuthState('sessions');
+        // Inicializar estado de autenticación en Supabase
+        const { state, saveCreds } = await useSupabaseAuthState(config.SUPABASE_URL, config.SUPABASE_KEY);
         
-        // Configuración especial para evitar bloqueo
         sock = makeWASocket({
-            auth: state,
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'error' }))
+            },
             logger: pino({ level: 'error' }),
-            browser: ['Ubuntu', 'Chrome', '20.0.04'],
+            browser: ['Windows', 'Chrome', '114.0.5735.199'],
             version,
             syncFullHistory: false,
             markOnlineOnConnect: false,
@@ -138,7 +123,6 @@ async function connectToWhatsApp() {
                 if (statusCode === DisconnectReason.loggedOut) {
                     console.log('🚫 Sesión cerrada por el usuario. Generando nuevo QR...\n');
                     connectionStatus = 'disconnected';
-                    cleanSessions();
                     reconnectAttempts = 0;
                     await sleep(3000);
                     connectToWhatsApp();
@@ -381,9 +365,8 @@ app.get('/qr', (req, res) => {
 
 // Limpiar sesión
 app.get('/clean', (req, res) => {
-    res.send('<html><body><h1>Limpiando sesión...</h1><p>Generando nuevo QR...</p><script>setTimeout(()=>window.location="/",3000);</script></body></html>');
-    console.log('🧹 Limpieza manual');
-    cleanSessions();
+    res.send('<html><body><h1>Reiniciando conexión...</h1><p>Generando nuevo QR si es necesario...</p><script>setTimeout(()=>window.location="/",3000);</script></body></html>');
+    console.log('🔄 Reinicio manual');
     if (sock) {
         sock.end();
     }
