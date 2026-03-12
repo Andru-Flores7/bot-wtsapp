@@ -20,6 +20,17 @@ module.exports = {
         USER_REMOVED: '✅ Usuario eliminado del grupo.',
         BOT_NOT_ADMIN: '❌ Necesito ser administrador para hacer eso.',
         WELCOME: '🎉 ¡Bienvenido al grupo!',
-        GOODBYE: '👋 Ha salido un miembro del grupo.'
-    }
-};
+        GOODBYE: '👋 Ha salido un miembro del grupo.',
+        PROTECTION_WARNING: '⚠️ ¡Intento de eliminar a un miembro PROTEGIDO detectado!',
+        NSFW_WARNING: '🔞 El envío de contenido inapropiado está prohibido en este grupo.'
+    },
+
+    // Filtro Anti-NSFW
+    BAD_WORDS: ['porno', 'porn', 'xxx', 'hentai', 'sexo', 'pene', 'vagina', 'culo', 'tetas'],
+
+    // Números protegidos (el bot se añade automáticamente en index.js)
+    PROTECTED_NUMBERS: [
+        '543884636451@s.whatsapp.net', // Dueño
+        '527971415726@s.whatsapp.net'  // Amiga
+    ]
+};

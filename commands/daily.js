@@ -23,7 +23,7 @@ const dailyActivities = [
     },
     {
         name: 'ADIVINANZA',
-        description: '🧩 Tengo ciudades pero no casas, bosques pero no árboles. ¿Qué soy? (Respuesta: Un mapa)'
+        description: '🧩 Tengo ciudades pero no casas, bosques pero no árboles. ¿Qué soy?'
     },
     {
         name: 'CULTURA',
@@ -32,6 +32,34 @@ const dailyActivities = [
     {
         name: 'MÚSICA',
         description: '🎵 Recomienda una canción que te ponga de buen humor'
+    },
+    {
+        name: 'VERDAD O RETO',
+        description: '😈 Elige: ¿Verdad o Reto? (El que responda primero elige para el siguiente)'
+    },
+    {
+        name: 'TALENTO',
+        description: '✨ Cuéntanos algo que sepas hacer muy bien (un talento oculto)'
+    },
+    {
+        name: 'VIAJE',
+        description: '✈️ Si pudieras viajar a cualquier lugar mañana mismo, ¿a dónde irías?'
+    },
+    {
+        name: 'SUEÑO',
+        description: '💤 ¿Qué es lo más raro que has soñado últimamente?'
+    },
+    {
+        name: 'COMIDA',
+        description: '🍕 ¿Cuál es tu comida favorita que podrías comer todos los días?'
+    },
+    {
+        name: 'PELÍCULA',
+        description: '🎬 Recomienda una película que todos deberían ver al menos una vez'
+    },
+    {
+        name: 'HOBBY',
+        description: '🎨 ¿Qué haces en tu tiempo libre para relajarte?'
     }
 ];
 

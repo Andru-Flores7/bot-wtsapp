@@ -7,12 +7,17 @@ const path = require('path');
 const config = require('./config');
 const adminCommands = require('./commands/admin');
 const userCommands = require('./commands/users');
+const gameCommands = require('./commands/games');
 const { handleInteraction } = require('./commands/interactions');
 const { sendDailyActivity } = require('./commands/daily');
 const { useSupabaseAuthState } = require('./utils/supabaseAuth');
+const NodeCache = require('node-cache');
 
 const app = express();
 const PORT = config.PORT || 8080;
+
+// Caché para rastrear actividad (groupId: { userId: timestamp })
+const activityCache = new NodeCache({ stdTTL: 0, checkperiod: 0 });
 
 let sock = null;
 let qrCode = null;
@@ -159,6 +164,55 @@ async function connectToWhatsApp() {
             }
         });
 
+        // Detección de entradas y salidas
+        sock.ev.on('group-participants.update', async (update) => {
+            const { id, participants, action } = update;
+            console.log(`👥 Evento de grupo en ${id}: ${action} para ${participants.length} usuarios`);
+
+            for (const participant of participants) {
+                try {
+                    if (action === 'add') {
+                        await sock.sendMessage(id, { 
+                            text: `${config.MESSAGES.WELCOME}\n\n@${participant.split('@')[0]}`,
+                            mentions: [participant]
+                        });
+                    } else if (action === 'remove') {
+                        // REGLA DE PROTECCIÓN: Si alguien elimina a un protegido
+                        const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                        const allProtected = [...config.PROTECTED_NUMBERS, botId];
+                        
+                        if (allProtected.includes(participant)) {
+                            const author = update.author; // Quién hizo la acción
+                            
+                            // Si hay un autor y no es el bot mismo ni otro protegido
+                            if (author && !allProtected.includes(author)) {
+                                console.log(`🛡️ PROTECCIÓN: ${author} intentó eliminar a ${participant}. Ejecutando contragolpe...`);
+                                
+                                await sock.sendMessage(id, {
+                                    text: `${config.MESSAGES.PROTECTION_WARNING}\n\n@${author.split('@')[0]} será eliminado por atrevido.`,
+                                    mentions: [author]
+                                });
+                                
+                                // Eliminar al infractor
+                                try {
+                                    await sock.groupParticipantsUpdate(id, [author], 'remove');
+                                } catch (e) {
+                                    console.error('Fallo al ejecutar contragolpe:', e);
+                                }
+                            }
+                        }
+
+                        await sock.sendMessage(id, { 
+                            text: `${config.MESSAGES.GOODBYE}\n\n@${participant.split('@')[0]}`,
+                            mentions: [participant]
+                        });
+                    }
+                } catch (err) {
+                    console.error('Error enviando mensaje de bienvenida/despedida:', err);
+                }
+            }
+        });
+
         // Escucha de mensajes
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             try {
@@ -182,6 +236,37 @@ async function connectToWhatsApp() {
                 
                 const groupId = msg.key.remoteJid;
                 const senderId = msg.key.participant || msg.key.remoteJid;
+                
+                // --- FILTRO ANTI-NSFW ---
+                const normalizedContent = messageContent.toLowerCase();
+                const isForbidden = config.BAD_WORDS.some(word => normalizedContent.includes(word));
+                
+                if (isForbidden) {
+                    console.log(`🔞 NSFW Detectado: [${senderId}] escribió contenido prohibido.`);
+                    
+                    // Enviar advertencia
+                    await sock.sendMessage(groupId, { 
+                        text: `@${senderId.split('@')[0]} ${config.MESSAGES.NSFW_WARNING}`,
+                        mentions: [senderId]
+                    });
+
+                    // Intentar borrar el mensaje si soy admin
+                    if (await adminCommands.isBotAdmin(sock, groupId)) {
+                        try {
+                            await sock.sendMessage(groupId, { delete: msg.key });
+                            console.log('🗑️ Mensaje NSFW eliminado.');
+                        } catch (e) {
+                            console.error('Fallo al eliminar mensaje NSFW:', e);
+                        }
+                    }
+                    return; // No procesar más comandos si el mensaje es prohibido
+                }
+
+                // Actualizar actividad del usuario
+                const groupActivity = activityCache.get(groupId) || {};
+                groupActivity[senderId] = Date.now();
+                activityCache.set(groupId, groupActivity);
+
                 const args = messageContent.slice(config.PREFIX.length).trim().split(/\s+/);
                 const command = args.shift().toLowerCase();
 
@@ -238,6 +323,21 @@ async function connectToWhatsApp() {
                         break;
                     case 'groupopen':
                         await adminCommands.openGroup(sock, groupId, senderId);
+                        break;
+                    case 'inactivos':
+                        await adminCommands.listInactive(sock, groupId, senderId, activityCache);
+                        break;
+                    case 'suerte':
+                        await gameCommands.showLuck(sock, groupId, senderId);
+                        break;
+                    case 'dado':
+                        await gameCommands.rollDice(sock, groupId);
+                        break;
+                    case 'slot':
+                        await gameCommands.playSlot(sock, groupId, senderId);
+                        break;
+                    case 'todos':
+                        await adminCommands.tagAll(sock, groupId, senderId, args);
                         break;
                     default:
                         await sock.sendMessage(groupId, { 

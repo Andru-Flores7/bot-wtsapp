@@ -69,11 +69,8 @@ const isBotAdmin = async (sock, groupId) => {
     } catch (error) {
         console.error('❌ Error verificando bot admin:', error);
         return false;
-    }
-};
-
-/**
- * Comando: !kick - Eliminar miembro (requiere responder)
+    }/**
+ * Comando: !kick - Eliminar miembro (soporta etiquetas y respuesta)
  */
 const kickMember = async (sock, message, groupId, senderId) => {
     // Verificar si es admin
@@ -88,134 +85,106 @@ const kickMember = async (sock, message, groupId, senderId) => {
         return;
     }
 
-    // Obtener usuario a eliminar (del mensaje respondido)
+    const mentions = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
     const quotedMessage = message.message?.extendedTextMessage?.contextInfo;
-    if (!quotedMessage?.participant) {
-        await sock.sendMessage(groupId, { text: config.MESSAGES.NEED_REPLY });
+    
+    let usersToKick = [...mentions];
+    if (quotedMessage?.participant && !usersToKick.includes(quotedMessage.participant)) {
+        usersToKick.push(quotedMessage.participant);
+    }
+
+    if (usersToKick.length === 0) {
+        await sock.sendMessage(groupId, { text: '❌ Debes etiquetar a alguien o responder a su mensaje para usar este comando.' });
         return;
     }
 
-    const userToKick = quotedMessage.participant;
-    
-    // No permitir eliminar al bot
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-    if (userToKick === botId) {
-        await sock.sendMessage(groupId, { text: '❌ No puedo eliminarme a mí mismo.' });
+    const allProtected = [...config.PROTECTED_NUMBERS, botId];
+    
+    // Filtrar fuera a los protegidos de la lista a eliminar
+    usersToKick = usersToKick.filter(u => !allProtected.includes(u));
+
+    if (usersToKick.length === 0) {
+        await sock.sendMessage(groupId, { text: '❌ No puedo eliminar a miembros protegidos (dueño, bot o lista blanca).' });
         return;
     }
 
     try {
-        await sock.groupParticipantsUpdate(groupId, [userToKick], 'remove');
-        await sock.sendMessage(groupId, { text: config.MESSAGES.USER_REMOVED });
+        await sock.groupParticipantsUpdate(groupId, usersToKick, 'remove');
+        await sock.sendMessage(groupId, { text: `✅ Eliminado(s) con éxito: ${usersToKick.length} usuario(s).` });
     } catch (error) {
         console.error('Error al eliminar:', error);
-        await sock.sendMessage(groupId, { text: '❌ Error al eliminar al usuario.' });
+        await sock.sendMessage(groupId, { text: '❌ Error al eliminar al usuario(s).' });
     }
 };
 
 /**
- * Comando: !add 521234567890 - Añadir miembro
+ * Comando: !inactivos - Lista usuarios sin actividad reciente
  */
-const addMember = async (sock, message, groupId, senderId, args) => {
-    if (!(await isAdmin(sock, groupId, senderId))) {
-        await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-        return;
-    }
-
-    if (!args || args.length < 1) {
-        await sock.sendMessage(groupId, { text: '❌ Uso: !add 521234567890' });
-        return;
-    }
-
-    // Limpiar el número de teléfono (quitar +, espacios, guiones)
-    const cleanNumber = args[0].replace(/\D/g, '');
-    const phoneNumber = cleanNumber + '@s.whatsapp.net';
-    
-    try {
-        await sock.groupParticipantsUpdate(groupId, [phoneNumber], 'add');
-        await sock.sendMessage(groupId, { text: `✅ Usuario añadido: ${cleanNumber}` });
-    } catch (error) {
-        await sock.sendMessage(groupId, { text: '❌ No se pudo añadir. La privacidad del usuario puede impedirlo o el número es incorrecto.' });
-    }
-};
-
-/**
- * Comando: !promote - Hacer admin (requiere responder)
- */
-const promoteToAdmin = async (sock, message, groupId, senderId) => {
-    if (!(await isAdmin(sock, groupId, senderId))) {
-        await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-        return;
-    }
-
-    const quotedMessage = message.message?.extendedTextMessage?.contextInfo;
-    if (!quotedMessage?.participant) {
-        await sock.sendMessage(groupId, { text: config.MESSAGES.NEED_REPLY });
-        return;
-    }
-
-    try {
-        await sock.groupParticipantsUpdate(groupId, [quotedMessage.participant], 'promote');
-        await sock.sendMessage(groupId, { text: '✅ Usuario promovido a administrador.' });
-    } catch (error) {
-        await sock.sendMessage(groupId, { text: '❌ Error al promover.' });
-    }
-};
-
-/**
- * Comando: !demote - Quitar admin (requiere responder)
- */
-const demoteFromAdmin = async (sock, message, groupId, senderId) => {
-    if (!(await isAdmin(sock, groupId, senderId))) {
-        await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
-        return;
-    }
-
-    const quotedMessage = message.message?.extendedTextMessage?.contextInfo;
-    if (!quotedMessage?.participant) {
-        await sock.sendMessage(groupId, { text: config.MESSAGES.NEED_REPLY });
-        return;
-    }
-
-    try {
-        await sock.groupParticipantsUpdate(groupId, [quotedMessage.participant], 'demote');
-        await sock.sendMessage(groupId, { text: '✅ Administrador degradado.' });
-    } catch (error) {
-        await sock.sendMessage(groupId, { text: '❌ Error al degradar.' });
-    }
-};
-
-/**
- * Comando: !groupclose - Cerrar grupo (solo admins)
- */
-const closeGroup = async (sock, groupId, senderId) => {
+const listInactive = async (sock, groupId, senderId, activityCache) => {
     if (!(await isAdmin(sock, groupId, senderId))) {
         await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
         return;
     }
 
     try {
-        await sock.groupSettingUpdate(groupId, 'announcement');
-        await sock.sendMessage(groupId, { text: '🔒 Grupo cerrado. Solo admins pueden enviar mensajes.' });
+        const groupMetadata = await sock.groupMetadata(groupId);
+        const participants = groupMetadata.participants;
+        const groupActivity = activityCache.get(groupId) || {};
+        
+        // Usuarios sin actividad registrada
+        const inactive = participants.filter(p => !groupActivity[p.id]);
+
+        if (inactive.length === 0) {
+            await sock.sendMessage(groupId, { text: '✅ Todos los miembros han estado activos desde que el bot inició.' });
+            return;
+        }
+
+        let msg = `📉 *USUARIOS INACTIVOS* (${inactive.length})\n\n`;
+        msg += `_Nota: Solo detecto inactividad desde que estoy en línea._\n\n`;
+        
+        inactive.forEach((p, i) => {
+            msg += `${i + 1}. @${p.id.split('@')[0]}\n`;
+        });
+
+        await sock.sendMessage(groupId, { 
+            text: msg, 
+            mentions: inactive.map(p => p.id) 
+        });
     } catch (error) {
-        await sock.sendMessage(groupId, { text: '❌ Error al cerrar grupo.' });
+        console.error('Error en listInactive:', error);
+        await sock.sendMessage(groupId, { text: '❌ Error al obtener lista de inactivos.' });
     }
 };
 
 /**
- * Comando: !groupopen - Abrir grupo (solo admins)
+ * Comando: !todos - Menciona a todos los miembros
  */
-const openGroup = async (sock, groupId, senderId) => {
+const tagAll = async (sock, groupId, senderId, args) => {
     if (!(await isAdmin(sock, groupId, senderId))) {
         await sock.sendMessage(groupId, { text: config.MESSAGES.NOT_ADMIN });
         return;
     }
 
     try {
-        await sock.groupSettingUpdate(groupId, 'not_announcement');
-        await sock.sendMessage(groupId, { text: '🔓 Grupo abierto. Todos pueden enviar mensajes.' });
+        const groupMetadata = await sock.groupMetadata(groupId);
+        const participants = groupMetadata.participants;
+        const message = args.join(' ') || '📢 ¡Atención a todos!';
+        
+        let text = `📢 *MENCIÓN GENERAL*\n\n`;
+        text += `📝 *Mensaje:* ${message}\n\n`;
+        
+        participants.forEach((p, i) => {
+            text += `@${p.id.split('@')[0]} `;
+        });
+
+        await sock.sendMessage(groupId, {
+            text: text,
+            mentions: participants.map(p => p.id)
+        });
     } catch (error) {
-        await sock.sendMessage(groupId, { text: '❌ Error al abrir grupo.' });
+        console.error('Error en tagAll:', error);
+        await sock.sendMessage(groupId, { text: '❌ Error al mencionar a todos.' });
     }
 };
 
@@ -226,6 +195,12 @@ module.exports = {
     addMember,
     promoteToAdmin,
     demoteFromAdmin,
+    closeGroup,
+    openGroup,
+    listInactive,
+    tagAll
+};
+mAdmin,
     closeGroup,
     openGroup
 };

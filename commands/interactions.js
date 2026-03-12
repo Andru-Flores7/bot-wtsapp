@@ -50,7 +50,16 @@ const reactions = {
         '😊 {author} se sonroja y le dice a {target}: Tus ojos son como el café, me quitan el sueño.',
         '💖 {author} le dedica un piropo a {target}: No es que tengas mucha ropa, es que me sobran ganas de verte.',
         '🔥 {author} le dice a {target}: ¿Te dolió cuando te caíste del cielo? Porque pareces un ángel.',
-        '🍭 {author} endulza a {target} diciendo: Si la belleza fuera pecado, tú no tendrías perdón de Dios.'
+        '🍭 {author} endulza a {target} diciendo: Si la belleza fuera pecado, tú no tendrías perdón de Dios.',
+        '🌈 {author} le dice a {target}: No sabía que los ángeles caminaban por la tierra.',
+        '💎 {author} halaga a {target}: Si tuvieras que pagar impuestos por ser guap@, estarías en la quiebra.',
+        '🍫 {author} a {target}: Eres como el chocolate, me endulzas la vida con solo verte.',
+        '🔋 {author} le confiesa a {target}: Eres la batería que le faltaba a mi corazón.',
+        '🗺️ {author} le dice a {target}: Perdona, ¿tienes un mapa? Me he perdido en tus ojos.',
+        '📸 {author} a {target}: ¿Puedo tomarte una foto? Quiero enseñarle a Santa mis deseos de Navidad.',
+        '🍿 {author} le dice a {target}: Eres como una película de estreno, no me quiero perder ni un segundo de ti.',
+        '🌡️ {author} a {target}: ¿Eres el sol? Porque me estás quemando de tanto amor.',
+        '🌙 {author} susurra a {target}: Si la luna es bella, tú eres el universo entero.'
     ]
 };
 
